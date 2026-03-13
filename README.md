@@ -27,7 +27,7 @@ MCP server for integrating Mem.ai with Claude using the Mem.ai v2 API.
 - `mem_list` - List notes with filtering and cursor-based pagination
 - `mem_create` - Create new notes with optional collection assignment and custom timestamps
 - `mem_read` - Read specific notes by ID
-- `mem_update` - Update an existing note's content by ID
+- `mem_append` - Append content to an existing note (preserves existing content)
 
 ### Intelligent Processing
 - `mem_it` - Send content to Mem.ai for intelligent processing and organization (async)

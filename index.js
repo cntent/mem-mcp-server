@@ -271,32 +271,33 @@ function createServer() {
     }
   );
 
-  // mem_update - POST /v2/notes (upsert with existing note ID)
-  // Doc: https://docs.mem.ai/api-reference/notes/create-note
+  // mem_append - Reads existing note, appends new content, writes back
+  // Uses: GET /v2/notes/{id} + POST /v2/notes (upsert)
   server.tool(
-    "mem_update",
-    "Update an existing note in Mem.ai by replacing its content",
+    "mem_append",
+    "Append content to an existing note in Mem.ai (preserves existing content)",
     {
-      note_id: z.string().describe("The UUID of the note to update"),
-      content: z.string().describe("The new markdown content for the note (first line becomes title, max ~200k chars)"),
-      collection_titles: z.array(z.string()).optional().describe("Optional collection titles to set on the note"),
-      collection_ids: z.array(z.string()).optional().describe("Optional collection IDs to set on the note"),
-      updated_at: z.string().optional().describe("Optional ISO 8601 datetime for when the note was updated"),
+      note_id: z.string().describe("The UUID of the note to append to"),
+      content: z.string().describe("The markdown content to append to the end of the note"),
     },
-    async ({ note_id, content, collection_titles, collection_ids, updated_at }) => {
+    async ({ note_id, content }) => {
       try {
-        const body = { id: note_id, content };
-        if (collection_titles?.length) body.collection_titles = collection_titles;
-        if (collection_ids?.length) body.collection_ids = collection_ids;
-        if (updated_at) body.updated_at = updated_at;
+        // Read the existing note first
+        const existing = await callMemAPIv2(`/notes/${note_id}`, "GET");
 
+        // Append the new content to the existing content
+        const updatedContent = existing.content + "\n\n" + content;
+
+        // Write back with the same ID (upsert)
+        const body = { id: note_id, content: updatedContent };
         const result = await callMemAPIv2("/notes", "POST", body);
+
         return {
-          content: [{ type: "text", text: `Note updated successfully!\n\nID: ${result.id}\nTitle: ${result.title}\nUpdated at: ${result.updated_at}\nCollections: ${result.collection_ids?.join(', ') || 'none'}` }],
+          content: [{ type: "text", text: `Content appended to note successfully!\n\nID: ${result.id}\nTitle: ${result.title}\nUpdated at: ${result.updated_at}\nCollections: ${result.collection_ids?.join(', ') || 'none'}` }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text", text: `Error updating note: ${error.message}` }],
+          content: [{ type: "text", text: `Error appending to note: ${error.message}` }],
           isError: true,
         };
       }
@@ -582,7 +583,7 @@ app.get("/health", (req, res) => {
     transports: ["streamable-http", "sse"],
     apiVersion: "v2",
     endpoints: {
-      notes: "POST /v2/notes/search, GET /v2/notes, POST /v2/notes, GET /v2/notes/{id}, POST /v2/notes (update)",
+      notes: "POST /v2/notes/search, GET /v2/notes, POST /v2/notes, GET /v2/notes/{id}, POST /v2/notes (append)",
       memIt: "POST /v2/mem-it",
       collections: "GET /v2/collections, POST /v2/collections/search"
     }
@@ -606,7 +607,7 @@ app.get("/", (req, res) => {
       mem_list: "GET /v2/notes - List notes with filters and pagination",
       mem_create: "POST /v2/notes - Create a new note",
       mem_read: "GET /v2/notes/{id} - Read a note by ID",
-      mem_update: "POST /v2/notes - Update an existing note by ID",
+      mem_append: "POST /v2/notes - Append content to an existing note",
       mem_it: "POST /v2/mem-it - Intelligent content processing",
       mem_collections_list: "GET /v2/collections - List collections",
       mem_collections_search: "POST /v2/collections/search - Search collections"
