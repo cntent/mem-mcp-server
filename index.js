@@ -285,8 +285,8 @@ function createServer() {
         // Read the existing note first
         const existing = await callMemAPIv2(`/notes/${note_id}`, "GET");
 
-        // Append the new content to the existing content
-        const updatedContent = existing.content + "\n\n" + content;
+        // Append the new content, trimming trailing whitespace from the original
+        const updatedContent = existing.content.trimEnd() + "\n\n" + content;
 
         // Write back with the same ID (upsert)
         const body = { id: note_id, content: updatedContent };
